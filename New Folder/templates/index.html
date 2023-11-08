@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Player</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #282c35;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+        }
+
+        h1 {
+            font-size: 2em;
+            color: #61dafb;
+            margin-bottom: 20px;
+        }
+
+        audio {
+            width: 40%;
+            margin-top: 20px;
+            border: none;
+            border-radius: 8px;
+            background-color: #ffffff;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+            overflow-y: auto;
+            max-height: 200px;
+            display: flex;
+            flex-direction: column; /* Display songs vertically */
+            align-items: center; /* Center the items horizontally */
+        }
+
+        li {
+            margin: 5px;
+        }
+
+        button {
+            background-color: #61dafb;
+            color: #fff;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 1em;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #4fa3d1;
+        }
+
+        button:active {
+            background-color: #388bb0;
+        }
+
+        div {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        select {
+            padding: 10px;
+            font-size: 1em;
+            margin-top: 10px;
+            background-color: #61dafb;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+        }
+
+        #currentSong {
+            font-size: 1.2em;
+            margin-top: 20px;
+        }
+
+        #speedSelector {
+            padding: 10px;
+            font-size: 1em;
+            margin-top: 10px;
+            background-color: #61dafb;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+        }
+
+        #downloadButton {
+            background-color: #61dafb;
+            color: #fff;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 1em;
+            transition: background-color 0.3s ease;
+        }
+
+        #downloadButton:hover {
+            background-color: #4fa3d1;
+        }
+
+        #downloadButton:active {
+            background-color: #388bb0;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Audio Player</h1>
+
+    <div>
+        <button onclick="playPrevious()">Previous</button>
+        <button onclick="playNext()">Next</button>
+        <button id="shuffleButton" onclick="toggleShuffle()">Shuffle Off</button>
+    </div>
+
+    <audio controls autoplay onended="playNext()" id="audioPlayer">
+        <source id="audioSource" type="audio/mp3">
+        Your browser does not support the audio tag.
+    </audio>
+
+    <p id="currentSong"></p>
+
+    <div>
+        <h2>Available Songs:</h2>
+        <ul>
+            {% for file in audio_files | sort %}
+            <li>
+                <button onclick="playSong('{{ file }}')">{{ file }}</button>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <br>
+
+    <select id="songSelector" style="display: none" onchange="updateAudioSource()">
+        {% for file in audio_files | sort %}
+        <option value="{{ file }}">{{ file }}</option>
+        {% endfor %}
+    </select>
+
+    <br>
+
+    <label for="speedSelector">Playback Speed:</label>
+    <select id="speedSelector" onchange="changePlaybackSpeed()">
+        <option value="1">1x</option>
+        <option value="1.5">1.5x</option>
+        <option value="2">2x</option>
+    </select>
+
+    <button id="downloadButton" onclick="downloadCurrentSong()">Download</button>
+
+    <script>
+        var audio = document.getElementById('audioPlayer');
+        var audioSource = document.getElementById("audioSource");
+        var songSelector = document.getElementById("songSelector");
+        var currentSongDisplay = document.getElementById("currentSong");
+        var shuffleButton = document.getElementById("shuffleButton");
+        var downloadButton = document.getElementById("downloadButton");
+        var speedSelector = document.getElementById("speedSelector");
+        var playlist = [{% for file in audio_files | sort %}'{{ file }}',{% endfor %}];
+        var originalOrder = [...playlist]; // Save the original order
+        var shuffleMode = false;
+
+        var currentSongIndex = 0;
+
+        document.getElementById("shuffleButton").textContent = shuffleMode ? "Shuffle On" : "Shuffle Off";
+
+        function playSong(selectedSong) {
+            audioSource.src = '{{ audio_directory }}/' + selectedSong;
+            audio.load();
+            audio.play();
+            currentSongIndex = playlist.indexOf(selectedSong);
+            updateCurrentSongDisplay();
+        }
+
+        function playNext() {
+            currentSongIndex = (currentSongIndex + 1) % playlist.length;
+            var selectedSong = playlist[currentSongIndex];
+            songSelector.value = selectedSong;
+            updateAudioSource();
+        }
+
+        function playPrevious() {
+            if (shuffleMode) {
+                currentSongIndex = (currentSongIndex - 1 + playlist.length) % playlist.length;
+                var selectedSong = playlist[currentSongIndex];
+                songSelector.value = selectedSong;
+                updateAudioSource();
+            } else {
+                currentSongIndex = (currentSongIndex - 1 + playlist.length) % playlist.length;
+                var selectedSong = playlist[currentSongIndex];
+                songSelector.value = selectedSong;
+                updateAudioSource();
+            }
+        }
+
+        function toggleShuffle() {
+            shuffleMode = !shuffleMode;
+
+            if (shuffleMode) {
+                // Save the current order and shuffle the playlist
+                originalOrder = [...playlist];
+                shufflePlaylist();
+                shuffleButton.textContent = "Shuffle On";
+            } else {
+                // Restore the original order
+                playlist = [...originalOrder];
+                shuffleButton.textContent = "Shuffle Off";
+            }
+        }
+
+        function shufflePlaylist() {
+            playlist = shuffleArray([...playlist]);
+            currentSongIndex = 0;
+            var selectedSong = playlist[currentSongIndex];
+            songSelector.value = selectedSong;
+            updateAudioSource();
+        }
+
+        function shuffleArray(array) {
+            for (var i = array.length - 1; i > 0; i--) {
+                var j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function updateAudioSource() {
+            var selectedSong = songSelector.value;
+            audioSource.src = '{{ audio_directory }}/' + selectedSong;
+            audio.load();
+            audio.play();
+            updateCurrentSongDisplay();
+        }
+
+        function updateCurrentSongDisplay() {
+            currentSongDisplay.textContent = "Now Playing: " + playlist[currentSongIndex];
+        }
+
+        function changePlaybackSpeed() {
+            audio.playbackRate = parseFloat(speedSelector.value);
+        }
+
+        function downloadCurrentSong() {
+            var selectedSong = playlist[currentSongIndex];
+            var downloadLink = document.createElement("a");
+            downloadLink.href = '{{ audio_directory }}/' + selectedSong;
+            downloadLink.download = selectedSong;
+            downloadLink.click();
+        }
+    </script>
+</body>
+
+</html>
+
